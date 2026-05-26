@@ -3,8 +3,8 @@
     <div class="login-box">
       <h2>RBAC 权限管理系统</h2>
       <el-form ref="loginForm" :model="form" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名"></el-input>
+        <el-form-item label="用户名" prop="name">
+          <el-input v-model="form.name" placeholder="请输入用户名"></el-input>
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input type="password" v-model="form.password" placeholder="请输入密码"></el-input>
@@ -24,18 +24,18 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 const router = useRouter()
 const form = ref({
-  username: '',
+  name: '',
   password: ''
 })
 
 const handleLogin = () => {
-  if (form.value.username && form.value.password) {
+  if (form.value.name && form.value.password) {
    request.post('/user/login', form.value).then(res => {
     console.log('登录响应:', res)
     if (res && res.code === 200) {
       ElMessage.success('登录成功')
       localStorage.setItem('token', res.token)
-      localStorage.setItem('username', res.name)
+      localStorage.setItem('name', res.name)
       localStorage.setItem('userid', res.userid)
       localStorage.setItem('menulist', JSON.stringify(res.menulist))
       router.push('/home')

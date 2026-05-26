@@ -7,7 +7,7 @@
     
     <el-table :data="userList" border style="width: 100%">
       <el-table-column prop="id" label="ID"></el-table-column>
-      <el-table-column prop="username" label="用户名"></el-table-column>
+      <el-table-column prop="name" label="用户名"></el-table-column>
       <el-table-column prop="role_name" label="角色"></el-table-column>
       <el-table-column label="操作">
         <template #default="scope">
@@ -20,8 +20,8 @@
     <!-- 添加/编辑用户弹窗 -->
     <el-dialog :title="isEdit ? '编辑用户' : '添加用户'" v-model="showModal">
       <el-form ref="userForm" :model="form" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名"></el-input>
+        <el-form-item label="用户名" prop="name">
+          <el-input v-model="form.name" placeholder="请输入用户名"></el-input>
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input type="password" v-model="form.password" placeholder="请输入密码"></el-input>
@@ -54,7 +54,7 @@ const roleList = ref([])
 // 获取用户列表
 const getUserList = () => {
   request({
-    url: '/user/users',
+    url: '/user/user',
     method: 'get'
   }).then(res => {
     console.log('用户列表:', res)
@@ -69,7 +69,7 @@ const getUserList = () => {
 // 获取角色列表
 const getRoleList = () => {
   request({
-    url: '/user/roles',
+    url: '/user/role',
     method: 'get'
   }).then(res => {
     console.log('角色列表:', res)
@@ -86,7 +86,7 @@ const showModal = ref(false)
 const isEdit = ref(false)
 const form = ref({
   id: null,
-  username: '',
+  name: '',
   password: '',
   role: null
 })
@@ -100,7 +100,7 @@ onMounted(() => {
 // 打开添加弹窗
 const openAddModal = () => {
   isEdit.value = false
-  form.value = { id: null, username: '', password: '', role: null }
+  form.value = { id: null, name: '', password: '', role: null }
   showModal.value = true
 }
 
@@ -109,7 +109,7 @@ const openEditModal = (row) => {
   isEdit.value = true
   form.value = {
     id: row.id,
-    username: row.username,
+    name: row.name,
     password: '',
     role: row.role
   }
@@ -117,7 +117,7 @@ const openEditModal = (row) => {
 }
 
 const saveUser = () => {
-  if (!form.value.username) {
+  if (!form.value.name) {
     ElMessage.error('请输入用户名')
     return
   }
@@ -135,7 +135,7 @@ const saveUser = () => {
   if (isEdit.value) {
     // 编辑用户
     const editData = {
-      username: form.value.username,
+      name: form.value.name,
       role: form.value.role
     }
     if (form.value.password) {
@@ -143,7 +143,7 @@ const saveUser = () => {
     }
     
     request({
-      url: `/user/users/${form.value.id}`,
+      url: `/user/user/${form.value.id}`,
       method: 'put',
       data: editData
     }).then(res => {
@@ -159,10 +159,10 @@ const saveUser = () => {
   } else {
     // 添加用户
     request({
-      url: '/user/users',
+      url: '/user/user',
       method: 'post',
       data: {
-        username: form.value.username,
+        name: form.value.name,
         password: form.value.password,
         role: form.value.role
       }
@@ -172,7 +172,7 @@ const saveUser = () => {
         // 前端直接更新列表
         const newUser = {
           id: res.id || Date.now(),
-          username: form.value.username,
+          name: form.value.name,
           role: form.value.role,
           role_name: roleList.value.find(r => r.id === form.value.role)?.name || '未知'
         }
@@ -190,7 +190,7 @@ const saveUser = () => {
 // 删除用户
 const deleteUser = (row) => {
   request({
-    url: `/user/users/${row.id}`,
+    url: `/user/user/${row.id}`,
     method: 'delete'
   }).then(res => {
     if (res && res.code === 200) {

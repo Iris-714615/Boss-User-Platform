@@ -4,7 +4,7 @@
       <h3>角色管理</h3>
       <el-button type="primary" @click="openAddModal">添加角色</el-button>
     </div>
-    
+
     <el-table :data="roleList" border style="width: 100%">
       <el-table-column prop="id" label="ID"></el-table-column>
       <el-table-column prop="name" label="角色名称"></el-table-column>
@@ -75,8 +75,8 @@ const roleList = ref([])
 // ])
 
 const getrolelist = () => { 
-  request.get('/users/roles').then(res => {
-    roleList.value = res.data.rolelist
+  request.get('/user/role').then(res => {
+    roleList.value = res.data
   })
 }
 
@@ -151,7 +151,7 @@ const saveRole = () => {
       ElMessage.success('编辑成功')
     }
   } else {
-    request.post('/users/roles',form.value).then(res => {
+    request.post('/user/role',form.value).then(res => {
 
        roleList.value.push({
       id: Date.now(),

@@ -4,7 +4,7 @@ import router from '@/router'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: "http://localhost:5000/", // 接口基础地址（从环境变量读取）
+  baseURL: "http://localhost:8001/", // 接口基础地址（从环境变量读取）
   timeout: 10000, // 请求超时时间（10秒）
   headers: {
     'Content-Type': 'application/json;charset=utf-8' // 默认请求头

@@ -29,7 +29,7 @@
     <!-- 主内容区 -->
     <main class="main-content">
       <header class="header">
-        <span>欢迎, {{ username }}</span>
+        <span>欢迎, {{ name }}</span>
       </header>
       <div class="content-wrapper">
         <router-view />
@@ -46,11 +46,11 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const route = useRoute()
 const activeMenu = ref('')
-const username = ref('')
+const name = ref('')
 const menulist = ref([])
 
 onMounted(() => {
-  username.value = localStorage.getItem('username') || '管理员'
+  name.value = localStorage.getItem('name') || '管理员'
   activeMenu.value = route.path
   menulist.value = JSON.parse(localStorage.getItem('menulist') || '[]')
 })
@@ -62,7 +62,7 @@ const handleMenuSelect = (index) => {
 
 const handleLogout = () => {
   localStorage.removeItem('token')
-  localStorage.removeItem('username')
+  localStorage.removeItem('name')
   ElMessage.success('退出成功')
   router.push('/login')
 }
