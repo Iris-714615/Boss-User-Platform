@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Search,
@@ -16,55 +16,102 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatSalary, positions, companies } from 'shared-types'
+import request from '@/utils/request'
 
 const router = useRouter()
 
 const searchKeyword = ref('')
 
 // 搜索历史
-const searchHistory = ref(['前端工程师', '产品经理', 'Java 开发', 'UI 设计师', '数据分析师'])
+const searchHistory = ref([])
 
 // 热门城市
-const hotCities = ref(['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '南京', '苏州', '西安'])
+const hotCities = ref([])
+
+const getHotCities = () => {
+  request.get('hot_city').then(res => {
+    if (res.code === 200) {
+      hotCities.value = res.data
+    }
+  })
+}
 
 // 推荐职位 - 使用统一的职位数据
-const recommendedJobs = computed(() => {
-  return positions.slice(0, 4).map(pos => ({
-    id: pos.id,
-    title: pos.title,
-    companyId: pos.companyId,
-    companyName: pos.companyName,
-    salaryDisplay: formatSalary(pos.salaryMin, pos.salaryMax, pos.salaryMonth),
-    city: pos.city,
-    experience: pos.experience,
-    education: pos.education,
-    tags: pos.tags || pos.welfare,
-    hot: pos.status === '已发布',
-    industry: '互联网/软件',  // TODO: 从公司数据获取
-    scale: '100-500 人'  // TODO: 从公司数据获取
-  }))
-})
+const recommendedJobs = ref([])
+const getRecommendedJobs = () => {
+  request.get('hot_job').then(res => {
+    if (res.code === 200) {
+      recommendedJobs.value = res.data
+    }
+  })
+}
+
 
 // 分类导航
-const categories = ref([
-  { name: '互联网', icon: OfficeBuilding, count: '12.5 万' },
-  { name: '金融', icon: Money, count: '8.3 万' },
-  { name: '教育', icon: UserFilled, count: '6.7 万' },
-  { name: '医疗', icon: Medal, count: '4.2 万' },
-  { name: '制造', icon: Briefcase, count: '9.8 万' },
-  { name: '传媒', icon: VideoCamera, count: '3.5 万' }
-])
-
+const categories = ref([])
+const getCategories = () => {
+  request.get('hot_industry').then(res => {
+    if (res.code === 200) {
+      categories.value = res.data
+    }
+  })
+}
 // 求职期望
-const jobExpectation = reactive({
+const jobExpectation = ref({
   position: '',
   city: '',
   salary: ''
 })
+const getJobExpectation = () => {
+   var token = localStorage.getItem('token')
+   token = "2323"
+   if (token) {
+    request.get('user_info').then(res=>{
+      jobExpectation.value.position = res.data.position
+      jobExpectation.value.city = res.data.city
+      jobExpectation.value.salary = res.data.salary
+    })
+       }
+     }
+
+const gethotsearch = () => {
+  request.get('hot_search').then(res => {
+    if (res.code === 200) {
+      searchHistory.value = res.data
+    }
+  })
+}
+const showSuggestion = ref(false)
+
+const userSearchHistory = ref([])
+const getuserHistory = () => {
+  request.get('search_history').then(res => {
+    if (res.code === 200) {
+      userSearchHistory.value = res.data
+    }
+  })
+}
+
+onMounted(() => {
+  getJobExpectation()
+  gethotsearch()
+  getuserHistory()
+  getCategories()
+  getRecommendedJobs()
+  getHotCities()
+})
 
 const onSearch = () => {
-  if (searchKeyword.value.trim()) {
-    router.push({ path: '/candidate/jobs', query: { keyword: searchKeyword.value.trim() } })
+  var keyword = searchKeyword.value.trim()
+  if (keyword) {
+    request.post('search', { keyword: keyword }).then(res => {
+      if (res.code === 200) {
+        router.push({ path: '/candidate/jobs', query: { keyword: keyword } })
+
+      } else {
+        ElMessage.error(res.msg)
+           }
+    })
   } else {
     ElMessage.warning('请输入搜索关键词')
   }
@@ -85,6 +132,27 @@ const clearHistory = () => {
   }).catch(() => {
     // 取消操作
   })
+}
+
+
+// 点击输入框显示联想
+const onInputFocus = () => {
+  if (searchHistory.value.length > 0) {
+    getuserHistory()  
+    showSuggestion.value = true
+  }
+}
+
+// 选择历史记录
+const selectHistory = (item) => {
+  searchKeyword.value = item
+  showSuggestion.value = false
+  onSearch()
+}
+
+// 点击外部关闭联想弹窗
+const closeSuggestion = () => {
+  showSuggestion.value = false
 }
 </script>
 
@@ -114,13 +182,15 @@ const clearHistory = () => {
 
     <!-- 搜索区 -->
     <el-card shadow="never" class="search-card" style="margin-top: 16px">
-      <div class="search-box">
+      <div class="search-box" style="position: relative">
         <el-input
           v-model="searchKeyword"
           placeholder="搜索职位、公司、行业"
           size="large"
           clearable
           @keyup.enter="onSearch"
+          @focus="onInputFocus"
+          @blur="closeSuggestion"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>
@@ -129,8 +199,28 @@ const clearHistory = () => {
             <el-button type="primary" @click="onSearch">搜索</el-button>
           </template>
         </el-input>
-      </div>
       
+
+      <!-- 搜索联想弹窗 -->
+        <div v-if="showSuggestion" class="suggestion-panel" @click.stop>
+          <div class="suggestion-header">
+            <span class="suggestion-title">🔍 搜索历史</span>
+            <el-button text size="small" @click="clearHistory">清除</el-button>
+          </div>
+          <div class="suggestion-list">
+            <div
+              v-for="(item, index) in userSearchHistory"
+              :key="index"
+              class="suggestion-item"
+              @click="selectHistory(item)"
+            >
+              <el-icon><Clock /></el-icon>
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </div>
+        </div>
+
       <!-- 搜索历史 -->
       <div class="search-history" v-if="searchHistory.length > 0">
         <div class="history-header">
@@ -152,6 +242,7 @@ const clearHistory = () => {
       </div>
     </el-card>
 
+      
     <!-- 分类导航 -->
     <el-card shadow="never" class="section-card" style="margin-top: 16px">
       <template #header>
@@ -195,7 +286,7 @@ const clearHistory = () => {
         >
           <div class="job-main">
             <div class="job-header">
-              <span class="job-title">{{ job.title }}</span>
+              <span class="job-title">{{ job.job_name }}</span>
               <el-tag v-if="job.hot" type="danger" size="small" effect="dark" style="margin-left: 8px">
                 急招
               </el-tag>
@@ -207,10 +298,10 @@ const clearHistory = () => {
             </div>
           </div>
           <div class="job-details">
-            <div class="salary">{{ job.salaryDisplay }}</div>
+            <div class="salary">{{ job.salary_range }}</div>
             <div class="job-tags">
               <span class="tag-item"><Location /> {{ job.city }}</span>
-              <span class="tag-item"><Clock /> {{ job.experience }}</span>
+              <span class="tag-item"><Clock /> {{ job.work_year }}</span>
               <span class="tag-item"><Briefcase /> {{ job.education }}</span>
             </div>
           </div>
@@ -241,6 +332,7 @@ const clearHistory = () => {
       </div>
     </el-card>
   </div>
+  
 </template>
 
 <style scoped>
@@ -286,10 +378,25 @@ const clearHistory = () => {
 
 .search-card {
   border-radius: 12px;
+  overflow: visible !important;
 }
 
 .search-box {
+  position: relative;
   margin-bottom: 16px;
+}
+/* 搜索联想弹窗 */
+.suggestion-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
 }
 
 .search-history {
