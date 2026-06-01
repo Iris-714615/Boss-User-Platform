@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   HomeFilled,
@@ -14,16 +14,26 @@ import {
   Search
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-
+import request from '@/utils/request'
 const router = useRouter()
 const route = useRoute()
 
 const activeMenu = computed(() => route.name)
 
 const userInfo = ref({
-  name: '张先生',
+  name: '',
   avatar: '',
   resumeStatus: '完善中'
+})
+const getuserInfo = ()=>{
+   request.get('user_info').then(res=>{
+    userInfo.value = res.data
+  })
+}
+onMounted(()=>{
+  userInfo.value.name = localStorage.getItem('candidateInfo').name || ''
+
+  getuserInfo()
 })
 
 const menus = [

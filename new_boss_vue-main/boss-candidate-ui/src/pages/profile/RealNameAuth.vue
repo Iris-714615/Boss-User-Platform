@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Warning, Clock, Upload, Camera } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
 
 const authInfo = ref({})
 const loading = ref(false)
@@ -12,9 +12,10 @@ const submitting = ref(false)
 const form = ref({
   realName: '',
   idCardNumber: '',
-  idCardFront: null,
-  idCardBack: null,
-  selfie: null
+  // idCardFront: null,
+  // idCardBack: null,
+  // selfie: null,
+  imgurl: null
 })
 
 // 摄像头相关
@@ -35,6 +36,38 @@ const rules = {
     { pattern: /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/, message: '请输入正确的身份证号', trigger: 'blur' }
   ]
 }
+const token = ref('')
+const imageUrl = ref('')
+const getToken = ()=>{
+  request.get('auth/qntoken').then(res=>{
+    token.value = res.token
+  })
+}
+onMounted(()=>{
+  getToken()
+})
+const icard_ocr = (imgurl)=>{
+  request.post('auth/idcard_ocr', {imgurl}).then(res=>{
+    form.value.idCardNumber = res.idCardNumber
+    form.value.realName = res.realName
+  })
+}
+const fileupload = (file) => {
+  const formData = new FormData()
+  formData.append('file', file.raw)
+  formData.append('token', token.value)
+  
+  // 前端直接上传到七牛云
+  request.post('https://up-z1.qiniup.com', formData).then(res => {
+      imageUrl.value = "http://tfxnqdgub.hb-bkt.clouddn.com/" + res.key      
+      form.value.imgurl = imageUrl.value
+      icard_ocr(imageUrl.value)
+      ElMessage.success('上传成功')
+    }).catch(error => {
+    console.error('上传失败', error)
+    ElMessage.error('上传失败，请重试')
+  })
+}
 
 // 上传前验证
 const beforeUpload = (file) => {
@@ -49,6 +82,7 @@ const beforeUpload = (file) => {
     ElMessage.error('图片大小不能超过 10MB！')
     return false
   }
+  // fileupload(file)
   return true
 }
 
@@ -56,7 +90,7 @@ const beforeUpload = (file) => {
 const fetchAuthStatus = async () => {
   try {
     loading.value = true
-    const res = await axios.get('/api/v1/auth/realname/status')
+    const res = await request.get('auth/realname/status')
     authInfo.value = res.data
   } catch (error) {
     console.error('获取认证状态失败', error)
@@ -71,66 +105,19 @@ const submitAuth = async () => {
     ElMessage.warning('请填写真实姓名和身份证号')
     return
   }
-  
-  if (!form.value.idCardFront || !form.value.idCardBack || !form.value.selfie) {
-    ElMessage.warning('请上传所有必需的图片')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      '请确保上传的是本人真实身份证照片，虚假信息将承担法律责任',
-      '确认提交',
-      {
-        confirmButtonText: '确认提交',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-
-    submitting.value = true
-
-    const formData = new FormData()
-    formData.append('real_name', form.value.realName)
-    formData.append('id_card_number', form.value.idCardNumber)
-    formData.append('id_card_front', form.value.idCardFront)
-    formData.append('id_card_back', form.value.idCardBack)
-    formData.append('selfie', form.value.selfie)
-
-    const res = await axios.post('/api/v1/auth/realname/submit', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-
-    ElMessage.success(res.data.message || '认证成功')
-    await fetchAuthStatus()
+  request.post('auth/idcard_upload', form.value).then(res=>{
+    ElMessage.success(res.data.msg || '认证成功')
+    // await fetchAuthStatus()
     
     // 清空表单
     form.value = {
       realName: '',
       idCardNumber: '',
-      idCardFront: null,
-      idCardBack: null,
-      selfie: null
+      // idCardFront: null,
+      // idCardBack: null,
+      // selfie: null
     }
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.detail || '认证失败，请重试')
-    }
-  } finally {
-    submitting.value = false
-  }
-}
-
-// 重新认证
-const retryAuth = () => {
-  authInfo.value = {}
-  form.value = {
-    realName: '',
-    idCardNumber: '',
-    idCardFront: null,
-    idCardBack: null,
-    selfie: null
-  }
+  })
 }
 
 // 处理文件选择
@@ -225,9 +212,9 @@ const handleDialogClose = () => {
   capturedImage.value = null
 }
 
-onMounted(() => {
-  fetchAuthStatus()
-})
+// onMounted(() => {
+//   // fetchAuthStatus()
+// })
 </script>
 
 <template>
@@ -282,7 +269,7 @@ onMounted(() => {
               action="#"
               :auto-upload="false"
               :before-upload="beforeUpload"
-              :on-change="(file) => { form.idCardFront = file.raw }"
+              :on-change="fileupload"
               :show-file-list="true"
               accept="image/*"
             >

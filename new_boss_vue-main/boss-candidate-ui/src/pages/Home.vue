@@ -104,14 +104,16 @@ onMounted(() => {
 const onSearch = () => {
   var keyword = searchKeyword.value.trim()
   if (keyword) {
-    request.post('search', { keyword: keyword }).then(res => {
-      if (res.code === 200) {
-        router.push({ path: '/candidate/jobs', query: { keyword: keyword } })
+    // request.post('search', { keyword: keyword }).then(res => {
+    //   if (res.code === 200) {
+    //     router.push({ path: '/candidate/jobs', query: { keyword: keyword } })
 
-      } else {
-        ElMessage.error(res.msg)
-           }
-    })
+    //   } else {
+    //     ElMessage.error(res.msg)
+    //        }
+    // })
+    router.push({ path: '/candidate/jobs', query: { name: searchKeyword.value.trim() } })
+  
   } else {
     ElMessage.warning('请输入搜索关键词')
   }

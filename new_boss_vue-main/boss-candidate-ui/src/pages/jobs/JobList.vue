@@ -1,41 +1,52 @@
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Location, Money, Briefcase } from '@element-plus/icons-vue'
 import { positions, formatSalary } from 'shared-types'
-
+import request from '@/utils/request'
 const route = useRoute()
 const router = useRouter()
 
 const query = reactive({
-  keyword: route.query.keyword || '',
+  name: route.query.name || '',
   city: route.query.city || '',
   salary: '',
   experience: ''
 })
 
 // 使用统一的职位数据
-const jobList = computed(() => {
-  return positions.map(pos => ({
-    id: pos.id,
-    title: pos.title,
-    companyId: pos.companyId,
-    companyName: pos.companyName,
-    salaryDisplay: formatSalary(pos.salaryMin, pos.salaryMax, pos.salaryMonth),
-    city: pos.city,
-    district: pos.district,
-    experience: pos.experience,
-    education: pos.education,
-    tags: pos.tags || pos.welfare,
-    hot: pos.status === '已发布',
-    industry: pos.industry,
-    scale: pos.scale
-  }))
-})
-
-const onSearch = () => {
-  router.push({ path: '/candidate/jobs', query })
+// const jobList = computed(() => {
+//   return positions.map(pos => ({
+//     id: pos.id,
+//     title: pos.title,
+//     companyId: pos.companyId,
+//     companyName: pos.companyName,
+//     salaryDisplay: formatSalary(pos.salaryMin, pos.salaryMax, pos.salaryMonth),
+//     city: pos.city,
+//     district: pos.district,
+//     experience: pos.experience,
+//     education: pos.education,
+//     tags: pos.tags || pos.welfare,
+//     hot: pos.status === '已发布',
+//     industry: pos.industry,
+//     scale: pos.scale
+//   }))
+// })
+const jobList = ref([])
+const search = ()=>{
+  request.get('search?name='+query.name+'&city='+query.city).then(res=>{
+    jobList.value = res.data
+  })
 }
+const onSearch = () => {
+  // router.push({ path: '/candidate/jobs', query })
+  search()
+}
+onMounted(()=>{
+  query.name = route.query.name || ''
+  query.city = route.query.city || ''
+  search()
+})
 </script>
 
 <template>
@@ -44,7 +55,7 @@ const onSearch = () => {
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="query">
         <el-form-item>
-          <el-input v-model="query.keyword" placeholder="职位/公司" style="width: 200px" />
+          <el-input v-model="query.name" placeholder="职位/公司" style="width: 200px" />
         </el-form-item>
         <el-form-item>
           <el-select v-model="query.city" placeholder="城市" style="width: 120px" clearable>
@@ -64,7 +75,7 @@ const onSearch = () => {
     <el-card shadow="never" class="job-card" style="margin-top: 16px">
       <div class="job-item" v-for="job in jobList" :key="job.id" @click="router.push(`/candidate/jobs/${job.id}`)">
         <div class="job-header">
-          <span class="job-title">{{ job.title }}</span>
+          <span class="job-title">{{ job.job_name }}</span>
           <el-tag v-if="job.hot" type="danger" size="small">热</el-tag>
         </div>
         <div class="job-company">{{ job.companyName }}</div>

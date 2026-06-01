@@ -1,5 +1,5 @@
 <script setup>
-import {ref, onUnmounted} from 'vue'
+import {ref, onUnmounted, onMounted} from 'vue'
 import {useRouter} from 'vue-router'
 import {ElMessage} from 'element-plus'
 import {User, Lock, Message, ChatDotRound, Loading} from '@element-plus/icons-vue'
@@ -12,8 +12,7 @@ const loginType = ref('password') // 'password' or 'code'
 const countdown = ref(0)
 
 // 钉钉登录相关
-const dingTalkWindow = ref(null)
-const dingTalkSuccess = ref(false)   // 新增：标记登录是否已完成
+const dingTalkSuccess = ref(false)   // 标记登录是否已完成
 
 const form = ref({
   phone: '',
@@ -33,7 +32,7 @@ const rules = {
   ],
   code: [
     {required: true, message: '请输入验证码', trigger: 'blur'},
-    {len: 6, message: '验证码为 6 位数字', trigger: 'blur'}
+    {len: 4, message: '验证码为 4 位数字', trigger: 'blur'}
   ]
 }
 
@@ -44,22 +43,40 @@ const onSubmit = async () => {
     if (valid) {
       loading.value = true
       try {
-        // TODO: 对接真实登录接口
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        let response
+        if (loginType.value === 'password') {
+          // 密码登录
+          response = await axios.post('http://localhost:8000/auth/login_password', {
+            phone: form.value.phone,
+            password: form.value.password,
+            username: form.value.phone // 用手机号作为用户名
+          })
+        } else {
+          // 验证码登录
+          response = await axios.post('http://localhost:8000/auth/login_sms', {
+            phone: form.value.phone,
+            code: form.value.code
+          })
+        }
 
-        const token = 'mock_candidate_token_' + Date.now()
-        localStorage.setItem('candidateToken', token)
-        localStorage.setItem('candidateInfo', JSON.stringify({
-          phone: form.value.phone,
-          name: '张先生',
-          avatar: '',
-          resumeStatus: '完善中'
-        }))
+        if (response.data.code === 200) {
+          const {token, userid, username} = response.data
+          localStorage.setItem('candidateToken', token)
+          localStorage.setItem('candidateInfo', JSON.stringify({
+            phone: form.value.phone,
+            name: username,
+            avatar: '',
+            resumeStatus: '完善中'
+          }))
 
-        ElMessage.success('登录成功')
-        router.replace('/candidate/home')
+          ElMessage.success('登录成功')
+          router.replace('/candidate/home')
+        } else {
+          ElMessage.error(response.data.msg || '登录失败')
+        }
       } catch (error) {
-        ElMessage.error('登录失败，请检查账号密码')
+        console.error('登录请求失败:', error)
+        ElMessage.error('登录失败，请检查网络或重试')
       } finally {
         loading.value = false
       }
@@ -69,7 +86,7 @@ const onSubmit = async () => {
   })
 }
 
-const sendCode = () => {
+const sendCode = async () => {
   if (!form.value.phone) {
     ElMessage.warning('请先输入手机号')
     return
@@ -83,15 +100,33 @@ const sendCode = () => {
 
   if (countdown.value > 0) return
 
-  ElMessage.success('验证码已发送到 ' + form.value.phone)
-  countdown.value = 60
+  try {
+    const response = await axios.post('http://localhost:8000/auth/send_sms', {
+      phone: form.value.phone
+    })
 
-  const timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) {
-      clearInterval(timer)
+    if (response.data.code === 200) {
+      // 开发环境直接显示验证码
+      if (response.data.sms_code) {
+        ElMessage.success('验证码：' + response.data.sms_code + '（开发环境）')
+      } else {
+        ElMessage.success('验证码已发送到 ' + form.value.phone)
+      }
+      countdown.value = 60
+
+      const timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+        }
+      }, 1000)
+    } else {
+      ElMessage.error(response.data.msg || '发送失败')
     }
-  }, 1000)
+  } catch (error) {
+    console.error('发送验证码失败:', error)
+    ElMessage.error('发送验证码失败，请重试')
+  }
 }
 
 const goToRegister = () => {
@@ -100,87 +135,55 @@ const goToRegister = () => {
 }
 
 // ================== 钉钉登录 ==================
-const handleDingTalkLogin = () => {
-  const clientId = 'dingmbiza7wx7lrsl05z'
-  const redirectUri = 'http://127.0.0.1:8000/third_party/dingtalk/login/callback'
-  const scope = 'openid corpid Contact.User.Read'
-
-  const loginUrl = 'https://login.dingtalk.com/oauth2/auth' +
-      '?response_type=code' +
-      `&client_id=${encodeURIComponent(clientId)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&scope=${encodeURIComponent(scope)}` +
-      '&prompt=consent' +
-      '&state=random_state'
-
-  const width = 450
-  const height = 600
-  const left = (window.screen.width - width) / 2
-  const top = (window.screen.height - height) / 2
-
-  dingTalkWindow.value = window.open(
-      loginUrl,
-      '钉钉登录',
-      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=yes,location=no,status=no`
-  )
-
-  // 监听子窗口关闭
-  const checkClosed = setInterval(() => {
-    if (dingTalkWindow.value && dingTalkWindow.value.closed) {
-      clearInterval(checkClosed)
-      console.log('钉钉登录窗口已关闭')
-      // 只有未成功登录时才提示取消
-      if (!dingTalkSuccess.value) {
-        //ElMessage.info('已取消钉钉登录')
-      }
-    }
-  }, 500)
-
-  // 添加消息监听
-  window.addEventListener('message', handleDingTalkCallback)
-}
-
-const handleDingTalkCallback = (event) => {
-  console.log('收到钉钉回调:', event.data)
-
-  if (event.data && event.data.type === 'dingtalk_callback') {
-    dingTalkSuccess.value = true   // 标记登录已成功
-
-    const {userInfo, is_bind} = event.data
-
-    try {
-      loading.value = true
-
-      // const token = 'candidate_token_' + Date.now()
-      // localStorage.setItem('candidateToken', token)
-      // localStorage.setItem('candidateInfo', JSON.stringify(userInfo))
-
-      if (is_bind) {
-        ElMessage.success('登录成功')
-        router.replace('/candidate/home')
-      } else {
-        ElMessage.warning('请先绑定手机号')
-        router.replace('/bind-phone')
-      }
-
-      if (dingTalkWindow.value && !dingTalkWindow.value.closed) {
-        dingTalkWindow.value.close()
-      }
-    } catch (error) {
-      ElMessage.error('登录处理失败')
-    } finally {
-      loading.value = false
-    }
+const handleDingTalkLogin = async () => {
+  try {
+    // 从后端获取钉钉登录URL
+    const response = await axios.get('http://localhost:8000/auth/dingding?types=dingding')
+    const loginUrl = response.data.url
+    
+    // 直接跳转到钉钉授权页面，不使用子窗口
+    window.location.href = loginUrl
+  } catch (error) {
+    console.error('获取钉钉登录URL失败:', error)
+    ElMessage.error('获取钉钉登录链接失败')
   }
 }
 
-// 组件卸载时重置标记，并清理监听/窗口
+// 处理钉钉登录成功回调（在页面加载时调用）
+const handleDingTalkCallback = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const token = urlParams.get('token')
+  const userid = urlParams.get('userid')
+  const username = urlParams.get('username')
+  const phone = urlParams.get('phone')
+  const name = urlParams.get('name')
+
+  if (token && userid) {
+    // 清理URL参数
+    window.history.replaceState({}, document.title, window.location.pathname)
+    
+    // 存储登录信息
+    localStorage.setItem('candidateToken', token)
+    localStorage.setItem('candidateInfo', JSON.stringify({
+      phone: phone || '',
+      name: username || name || '钉钉用户',
+      avatar: '',
+      resumeStatus: '完善中'
+    }))
+
+    ElMessage.success('登录成功')
+    router.replace('/candidate/home')
+  }
+}
+
+// 组件挂载时检查是否是钉钉回调
+onMounted(() => {
+  handleDingTalkCallback()
+})
+
+// 组件卸载时重置标记
 onUnmounted(() => {
   dingTalkSuccess.value = false
-  window.removeEventListener('message', handleDingTalkCallback)
-  if (dingTalkWindow.value && !dingTalkWindow.value.closed) {
-    dingTalkWindow.value.close()
-  }
 })
 </script>
 
@@ -366,9 +369,10 @@ onUnmounted(() => {
           <div class="other-login">
             <el-divider content-position="center">其他登录方式</el-divider>
             <div class="login-methods">
-              <el-button circle @click="handleDingTalkLogin" title="钉钉登录">
-                <img src="/icons/dingtalk.svg" width="20" height="20" alt="钉钉"/>
-              </el-button>
+               <el-button circle @click="handleDingTalkLogin" title="钉钉登录">
+                <img src="/icons/dingtalk.svg" width="20" height="20" alt="钉钉"/>钉钉登录
+               </el-button>
+              
               <el-button circle @click="ElMessage.info('微信登录开发中')" title="微信登录">
                 <el-icon size="20">
                   <ChatDotRound/>

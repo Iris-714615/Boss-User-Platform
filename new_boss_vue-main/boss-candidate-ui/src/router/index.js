@@ -7,6 +7,7 @@ import CandidateLayout from '@/layouts/CandidateLayout.vue'
 import Login from '@/pages/Login.vue'
 import Register from '@/pages/Register.vue'
 import BindPhone from '@/pages/BindPhone.vue'
+import DingLoginSuccess from '@/pages/DingLoginSuccess.vue'
 import Home from '@/pages/Home.vue'
 import JobList from '@/pages/jobs/JobList.vue'
 import JobDetail from '@/pages/jobs/JobDetail.vue'
@@ -37,6 +38,11 @@ const routes = [
     path: '/bind-phone',
     name: 'BindPhone',
     component: BindPhone
+  },
+  {
+    path: '/dinglogin-success',
+    name: 'DingLoginSuccess',
+    component: DingLoginSuccess
   },
   {
     path: '/candidate',
@@ -105,10 +111,10 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('candidateToken')
   
-  // 允许直接访问登录页、注册页和绑定手机号页
-  if (to.path === '/login' || to.path === '/register' || to.path === '/bind-phone') {
-    if (token && to.path !== '/bind-phone') {
-      // 已登录则跳转到首页（绑定页除外）
+  // 允许直接访问登录页、注册页、绑定手机号页和钉钉登录成功页
+  if (to.path === '/login' || to.path === '/register' || to.path === '/bind-phone' || to.path === '/dinglogin-success') {
+    if (token && to.path !== '/bind-phone' && to.path !== '/dinglogin-success') {
+      // 已登录则跳转到首页（绑定页和钉钉登录成功页除外）
       next('/candidate/home')
     } else {
       next()
