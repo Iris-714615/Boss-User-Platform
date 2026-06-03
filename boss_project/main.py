@@ -86,6 +86,76 @@ app.add_middleware(
 #     # 启动异步 binlog 监听（后台常驻）
 #     asyncio.create_task(binlog_listener())
 
+from typing import List,Dict
+from fastapi import WebSocket,WebSocketDisconnect
+active_connections: List[WebSocket] = []
+client_connections: Dict[str, WebSocket] = {}
+
+async def broadcast(message: str):
+    for connection in active_connections:
+        await connection.send_text(message)
+
+@app.websocket("/ws/{userid}")
+async def websocket_endpoint(websocket: WebSocket, userid: str):
+    client_connections[userid] = websocket
+    await websocket.accept()
+    client_connections[str(userid)] = websocket
+    print(f"客户端 {userid} 已连接，当前连接数：{len(active_connections)}")
+    try:
+       while True:
+           data = await websocket.receive_text()
+           print(f"收到消息: {data}")
+           await websocket.send_text(f"服务器已收到消息: {data}")
+    except WebSocketDisconnect:
+        active_connections.remove(websocket)
+        client_connections.pop(userid,None)
+        await broadcast(f"userid {userid} disconnected")
+        print(f"客户端 {userid} 已断开，当前连接数：{len(active_connections)}")
+
+from tools.myredis import r
+from tools.bdapi import bdapi
+import json
+
+def idcardtask():
+    len = r.llen('idcardocr')
+    if len > 0:           
+        idlist=r.lrange('idcardocr',0,-1)
+        for id in idlist:
+            imgurl=id.decode('utf-8')
+            mes = bdapi.font_ocr(imgurl)
+            mes = json.loads(mes)
+            name = mes["words_result"][0]["words"][-2:]
+            idcard = mes["words_result"][1]["words"][-18:]
+            # r.set(imgurl,json.dumps({'name':name,'idcard':idcard}))
+            # r.lrem('idcardocr',1,id)
+            # userAuth = UserAuthReal.filter(font_img=imgurl).first()
+            # userid = userAuth.user
+            userid = 1
+            client_connections[str(userid)].send_text(json.dumps({'realName':name,'idCardNumber':idcard}))
+    else:
+        print("无数据处理等待中")
+from apscheduler.schedulers.background import BackgroundScheduler
+scheduler = BackgroundScheduler()
+
+def add_jobs():
+    scheduler.add_job(
+        func=idcardtask, 
+        trigger='interval', 
+        seconds=2,
+        id='time_printer'
+        )
+
+# @app.on_event("startup")
+def startup_event():
+    add_jobs()
+    scheduler.start()
+    print("调度器启动")
+
+# @app.on_event("shutdown")
+def shutdown_event():
+    scheduler.shutdown()
+    print("调度器关闭")
+
 
 if __name__ == "__main__":
     import uvicorn

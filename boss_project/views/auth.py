@@ -205,15 +205,26 @@ class IdCardOcr(BaseModel):
    
 @auth_router.post("/idcard_ocr")
 async def idcard_ocr(img: IdCardOcr):
-    imgurl = img.imgurl
-    res = bdapi.font_ocr(imgurl)
-    print(res)
-    res = json.loads(res)
-    name = res["words_result"][0]["words"][-2:]
-    idcard = res["words_result"][1]["words"][-18:]
+    # imgurl = img.imgurl
+    # res = bdapi.font_ocr(imgurl)
+    # print(res)
+    # res = json.loads(res)
+    # name = res["words_result"][0]["words"][-2:]
+    # idcard = res["words_result"][1]["words"][-18:]
     
-    return {"code": 200, "msg": "获取成功", "realName": name, "idCardNumber": idcard}
+    # return {"code": 200, "msg": "获取成功", "realName": name, "idCardNumber": idcard}
+    userid = 1
+    r.rpush('idcardocr', img.imgurl)
+    return {"code": 200, "msg": "正在处理中，请等待"}
 
+@auth_router.post("/idcardocrmes")
+async def idcardocrmes(img: IdCardOcr):
+    mes = r.get(img.imgurl)
+    if mes:
+        res = json.loads(mes)
+        return {'code': 200, 'msg': '获取成功', 'realName': res['name'], 'idCardNumber': res['idcard']}
+    else:
+        return {'code': 400, 'msg': '正在处理中，请等待'}
 class userIdCard(BaseModel):
     realName: str = ""
     idCardNumber: str = ""
@@ -231,4 +242,5 @@ async def idcard_upload(userIDcard: userIdCard, request: Request):
         )  
     await User.filter(id=userid).update( is_real=1 )    
     return {"code": 200, "msg": "上传成功"}
+
 

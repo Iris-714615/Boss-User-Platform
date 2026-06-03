@@ -209,3 +209,45 @@ async def search_job(jobname, city, pagination: dict = Depends(pagination)):
     return {'code': 200, 'msg': '成功', 'data': searchlist}
 
     
+#职位详情
+@home_router.get("/jobdetail/{id}")
+async def job_detail(id: int):
+    #获取参数、职位id
+    key = "jobdetail"+str(id)
+    #查询redis中是否存在该职位，存在则直接返回，不存在则查询数据库并缓存到redis中
+    value = r.get(key)
+    if value:
+        value = json.loads(value)
+        return {"code": 200, "msg": "成功", "data": value}
+    else:
+        #并发访问同时1万人，分布式锁，确保只查询一次
+        jobdict = {}
+        # r.delete(key+"_lock")
+        if r.setnx(key+"_lock", 1):     
+            #查询数据库
+            job = await Job.filter(id=id).first()
+            if job:
+                city = await job.city
+                companymes = await job.company
+                company = {'id':companymes.id,'name':companymes.name,'intro':companymes.intro,'scale':companymes.scale,'address':companymes.address}
+                publishermes = await job.publisher
+                dept = await publishermes.dept
+                publisher = {'id':publishermes.id,'name':publishermes.real_name,'company':companymes.name,'dept':dept.dept_name}
+                
+                jobdict ={"id":job.id,"job_name":job.job_name,
+                "salary_range":job.salary_range,"city":city.name,
+                "education":job.education,"work_year":job.work_year,
+                "job_desc":job.job_desc,'company':company,'publisher':publisher}
+                r.set(key, json.dumps(jobdict))
+            r.delete(key+"_lock")
+        else:
+            time.sleep(1)
+            value = r.get(key)
+            if value:
+                value = json.loads(value)
+                return {"code": 200, "msg": "成功", "data": value}
+        return {'code':200,'msg':'成功','data':jobdict}
+    #存入redis
+    #返回职位详情
+
+    
