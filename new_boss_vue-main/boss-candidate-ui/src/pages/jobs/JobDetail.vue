@@ -1,51 +1,27 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Location, Money, Briefcase, Share, Star, Clock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { formatSalary, formatTime } from 'shared-types'
+import request from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
 
 // 使用统一的职位数据结构
-const job = ref({
-  id: route.params.id,
-  title: '高级前端工程师',
-  companyId: 'company_001',        // ✅ 添加企业 ID
-  companyName: '示例科技有限公司',  // ✅ 添加企业名称
-  salaryMin: 25,                   // ✅ 分字段存储
-  salaryMax: 35,
-  salaryMonth: 14,
-  city: '上海',
-  district: '浦东新区',
-  address: '上海市浦东新区张江高科技园区',
-  experience: '3-5 年',
-  education: '本科',
-  industry: '互联网/软件',
-  scale: '100-500 人',
-  stage: 'B 轮',
-  description: `岗位职责：
-1. 负责公司核心产品的前端架构设计和开发
-2. 主导前端性能优化，提升用户体验
-3. 搭建组件库，提高团队开发效率
-4. 指导初级工程师，组织技术分享
-
-任职要求：
-1. 计算机相关专业本科及以上学历
-2. 3-5 年前端开发经验
-3. 精通 Vue.js/React 等主流框架
-4. 熟悉 TypeScript、Webpack 等工具
-5. 具备良好的团队协作和沟通能力`,
-  welfare: ['五险一金', '带薪年假', '弹性工作', '周末双休', '年终奖', '股票期权', '定期体检', '零食下午茶'],
-  tags: ['五险一金', '带薪年假', '弹性工作', '周末双休'],
-  status: '已发布',
-  publishedAt: Date.now() - 7200000, // 2 小时前
-  views: 1256,
-  communicates: 89,
-  resumes: 34
+// 初始化 定义一下  -避免懒加载
+const job = ref({'company':{},'publisher':{}})
+const getJobDetail = () => {
+  request.get('jobdetail/'+route.params.id).then(res => {
+    if (res.code === 200) {
+      job.value = res.data
+    }
+  })
+}
+onMounted(() => {
+  getJobDetail()
 })
-
 // 计算属性：薪资显示
 const salaryDisplay = computed(() => {
   return formatSalary(job.value.salaryMin, job.value.salaryMax, job.value.salaryMonth)
@@ -115,8 +91,8 @@ const onChat = () => {
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
         <div class="header-info">
-          <h1 class="job-title">{{ job.title }}</h1>
-          <div class="job-salary">{{ salaryDisplay }}</div>
+          <h1 class="job-title">{{ job.job_name }}</h1>
+          <div class="job-salary">{{ job.salary_range }}</div>
         </div>
         <div class="header-actions">
           <el-button circle text @click="ElMessage.info('分享功能开发中')">
@@ -133,11 +109,11 @@ const onChat = () => {
     <el-card shadow="never" class="info-card" style="margin-top: 16px">
       <div class="tags-row">
         <el-tag size="large"><Location /> {{ job.city }}</el-tag>
-        <el-tag size="large">{{ job.experience }}</el-tag>
+        <el-tag size="large">{{ job.work_year }}</el-tag>
         <el-tag size="large">{{ job.education }}</el-tag>
       </div>
       <div class="publish-info">
-        <span class="time-label"><Clock /> 发布于 {{ publishTimeDisplay }}</span>
+        <span class="time-label"><Clock /> 发布于 {{ publishTimeDisplay.value }}</span>
       </div>
     </el-card>
 
@@ -148,7 +124,7 @@ const onChat = () => {
           <span>📋 职位描述</span>
         </div>
       </template>
-      <div class="desc-content" style="white-space: pre-wrap">{{ job.description }}</div>
+      <div class="desc-content" style="white-space: pre-wrap">{{ job.job_desc }}</div>
     </el-card>
 
     <!-- 职位福利 -->
@@ -168,14 +144,14 @@ const onChat = () => {
       <template #header>
         <span>🏢 公司信息</span>
       </template>
-      <div class="company-name">{{ companyInfo.name }}</div>
+      <div class="company-name">{{ job.company.name }}</div>
       <div class="company-tags">
-        <el-tag size="small" effect="plain">{{ companyInfo.industry }}</el-tag>
-        <el-tag size="small" effect="plain">{{ companyInfo.scale }}</el-tag>
-        <el-tag size="small" effect="plain">{{ companyInfo.stage }}</el-tag>
+        <el-tag size="small" effect="plain">{{ job.company.intro }}</el-tag>
+        <el-tag size="small" effect="plain">{{ job.company.scale }}</el-tag>
+        <!-- <el-tag size="small" effect="plain">{{ job.publisher.dept }}</el-tag> -->
       </div>
       <div class="company-desc" style="margin-top: 12px; font-size: 14px; color: #606266">
-        {{ companyInfo.description }}
+        {{ job.publisher.name }}
       </div>
     </el-card>
 
@@ -186,7 +162,7 @@ const onChat = () => {
       </template>
       <div class="work-address">
         <el-icon><Location /></el-icon>
-        {{ job.address }}
+        {{ job.company.address }}
       </div>
     </el-card>
 

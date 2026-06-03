@@ -46,14 +46,45 @@ const getToken = ()=>{
 onMounted(()=>{
   getToken()
 })
+const ws = ref(null)
+const initwebsocket = ()=>{
+  ws.value = new WebSocket('ws://localhost:8000/ws/1')
+  ws.value.onopen = ()=>{
+    console.log('连接成功')
+  }
+  ws.value.onmessage = (event)=>{
+    console.log('收到消息', event.data)
+    var idcard = JSON.parse(event.data)
+    form.value.realName = idcard.realName
+    form.value.idCardNumber = idcard.idCardNumber
+  }
+  ws.value.onclose = ()=>{
+    console.log('连接关闭')
+  }
+}
 const icard_ocr = (imgurl)=>{
   request.post('auth/idcard_ocr', {imgurl}).then(res=>{
-    form.value.idCardNumber = res.idCardNumber
-    form.value.realName = res.realName
+    // form.value.idCardNumber = res.idCardNumber
+    // form.value.realName = res.realName
+    if(res.code == 200){
+      initwebsocket()
+      // request.post('auth/idcardocrmes', {imgurl}).then(res=>{
+      //   if(res.code == 200){
+      //     var t = setInterval(()=>{
+      //       request.post('auth/idcardocrmes', {imgurl}).then(res1=>{
+      //         if(res1.code == 200){
+      //           form.value.realName = res1.realName
+      //           form.value.idCardNumber = res1.idCardNumber
+      //           clearInterval(t)
+        //       }
+        //     })
+        // },1000)
+    }
   })
 }
 const fileupload = (file) => {
   const formData = new FormData()
+  alert(file.raw)
   formData.append('file', file.raw)
   formData.append('token', token.value)
   
