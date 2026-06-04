@@ -1,12 +1,15 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref,onMounted } from 'vue'
+import { useRouter,useRoute } from 'vue-router'
 import { Search, ChatDotRound, Phone, VideoCamera, User } from '@element-plus/icons-vue'
 import { UserType, formatTime, messages, candidateUsers } from 'shared-types'
 
 const router = useRouter()
 
 const query = ref('')
+
+const route = useRoute()
+
 
 // 使用统一的消息数据生成聊天列表
 const chatList = ref(candidateUsers.map(candidate => {
@@ -27,6 +30,35 @@ const chatList = ref(candidateUsers.map(candidate => {
     status: 'online'
   }
 }))
+
+const ws = ref(null)
+const initwebsocket = () => { 
+  var room = route.query.id
+  alert(room)
+  ws.value = new WebSocket('ws://localhost:8000/ws/'+room)
+  ws.value.onopen = () => {
+    console.log('WebSocket 已连接')
+  }
+  ws.value.onmessage = (event) => {
+    console.log('收到消息:', event.data)
+    var data = JSON.parse(event.data)
+    chatList.value.push(data)
+
+  }
+  ws.value.onerror = (error) => {
+    console.error('WebSocket 错误:', error)
+  }
+  ws.value.onclose = () => {
+    console.log('WebSocket 已关闭')
+  }
+  ws.value.onclose = (error) => {
+    console.error('WebSocket 关闭误:', error)
+  }
+}
+
+onMounted(() => {
+  initwebsocket()
+})
 
 const onSearch = () => {
   console.log('search:', query.value)

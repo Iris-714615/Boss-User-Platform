@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref,onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Upload, Paperclip, Picture, Phone, VideoCamera, User } from '@element-plus/icons-vue'
 
@@ -33,7 +33,10 @@ const sendMessage = () => {
     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   })
   
-  messageInput.value = ''
+  // messageInput.value = ''
+  alert(touser.value)
+  var mes = {"room":touser.value,"content":{"id":123,"content":messageInput.value}}
+  ws.value.send(JSON.stringify(mes))
 }
 
 const onKeyPress = (e) => {
@@ -42,6 +45,36 @@ const onKeyPress = (e) => {
     sendMessage()
   }
 }
+const ws = ref(null)
+const room =ref(null)
+const userid = ref(null)
+const touser = ref('')
+
+const initwebsocket = ()=>{ 
+  localStorage.setItem('userid',"a1001")
+  room.value= "hr"+localStorage.getItem('userid')+"user"+String(userid.value)
+  touser.value = "user"+String(userid.value)+"hr"+String(localStorage.getItem('userid'))
+  ws.value = new WebSocket('ws://localhost:8000/ws/'+room.value)
+  ws.value.onopen = () => {
+    console.log('WebSocket 连接成功')
+  }
+  ws.value.onerror = (error) => {
+    console.error('WebSocket 错误:', error)
+  }
+  ws.value.onclose = () => {
+    console.log('WebSocket 连接已关闭')
+  }
+  ws.value.onmessage = (event) => {
+    console.log('收到消息:', event.data)
+    var data = JSON.parse(event.data)
+    messages.value.push(data)
+  }
+}
+
+onMounted(()=>{
+  userid.value = route.params.userId
+  initwebsocket()
+})
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick, computed } from 'vue'
+import { ref, nextTick, computed,onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Picture, Folder, Odometer, Phone, VideoCamera, MoreFilled } from '@element-plus/icons-vue'
@@ -10,29 +10,8 @@ const router = useRouter()
 
 const messageInput = ref('')
 const inputRef = ref(null)
-
-// 使用统一的数据结构
-const chatInfo = ref({
-  hrId: 'hr001',              // ✅ HR ID
-  hrName: '张经理',
-  hrAvatar: '',
-  companyId: 'company_001',   // ✅ 企业 ID
-  company: '示例科技有限公司',
-  position: '招聘经理',
-  online: true,
-  jobId: 'position_001',      // ✅ 职位 ID
-  jobTitle: '高级前端工程师',
-  salaryMin: 25,              // ✅ 分字段存储
-  salaryMax: 35,
-  salaryMonth: 14
-})
-
-// 计算属性：薪资显示
-const salaryDisplay = computed(() => {
-  return `${chatInfo.value.salaryMin}-${chatInfo.value.salaryMax}K·${chatInfo.value.salaryMonth}薪`
-})
-
-// 消息列表 - 使用统一的 ChatMessage 结构
+const ws = ref(null)
+const userid=ref(3)
 const messages = ref([
   {
     id: 'msg_001',
@@ -59,46 +38,59 @@ const messages = ref([
     timestamp: Date.now() - 3600000 * 1.9,
     status: 'read',
     relatedPositionId: 'position_001'
-  },
-  {
-    id: 'msg_003',
-    sessionId: 'hr_hr001_candidate_cand001',
-    senderId: 'hr001',
-    senderType: UserType.HR,
-    receiverId: 'cand001',
-    receiverType: UserType.CANDIDATE,
-    type: MessageType.TEXT,
-    content: '您的简历我们已经收到了，觉得比较匹配。请问您什么时候方便面试？',
-    timestamp: Date.now() - 3600000 * 1.8,
-    status: 'read',
-    relatedPositionId: 'position_001'
-  },
-  {
-    id: 'msg_004',
-    sessionId: 'hr_hr001_candidate_cand001',
-    senderId: 'system',
-    senderType: UserType.HR,
-    receiverId: 'cand001',
-    receiverType: UserType.CANDIDATE,
-    type: MessageType.SYSTEM,
-    content: '交换了电话',
-    timestamp: Date.now() - 3600000 * 1.7,
-    status: 'read'
-  },
-  {
-    id: 'msg_005',
-    sessionId: 'hr_hr001_candidate_cand001',
-    senderId: 'cand001',
-    senderType: UserType.CANDIDATE,
-    receiverId: 'hr001',
-    receiverType: UserType.HR,
-    type: MessageType.TEXT,
-    content: '我这周三或周四下午都可以',
-    timestamp: Date.now() - 3600000 * 1.6,
-    status: 'delivered',
-    relatedPositionId: 'position_001'
   }
 ])
+const room = ref('')
+const touser = ref('')
+const initChatInfo = () => { 
+  room.value= "user"+String(userid.value)+"hr"+String(route.params.hrId)
+  touser.value = "hr"+String(route.params.hrId)+"user"+String(userid.value)
+  ws.value = new WebSocket('ws://localhost:8000/ws/'+room.value)
+  ws.value.onopen = () => {
+    console.log('WebSocket 连接成功')
+  }
+  ws.value.onerror = (error) => {
+    console.error('WebSocket 错误:', error)
+  }
+  ws.value.onmessage = (message) => {
+    console.log('收到消息:', message)
+    messages.value.push(JSON.parse(message.data))
+  }
+  ws.value.onclose = () => {
+    console.log('WebSocket 连接关闭')
+  }
+}
+
+onMounted(() => {
+  // 初始化聊天信息
+  initChatInfo()
+})
+
+
+
+// 使用统一的数据结构
+const chatInfo = ref({
+  hrId: 'hr001',              // ✅ HR ID
+  hrName: '张经理',
+  hrAvatar: '',
+  companyId: 'company_001',   // ✅ 企业 ID
+  company: '示例科技有限公司',
+  position: '招聘经理',
+  online: true,
+  jobId: 'position_001',      // ✅ 职位 ID
+  jobTitle: '高级前端工程师',
+  salaryMin: 25,              // ✅ 分字段存储
+  salaryMax: 35,
+  salaryMonth: 14
+})
+
+// 计算属性：薪资显示
+const salaryDisplay = computed(() => {
+  return `${chatInfo.value.salaryMin}-${chatInfo.value.salaryMax}K·${chatInfo.value.salaryMonth}薪`
+})
+
+// 消息列表 - 使用统一的 ChatMessage 结构
+
 
 const sendMessage = () => {
   if (!messageInput.value.trim()) {
@@ -121,26 +113,11 @@ const sendMessage = () => {
     relatedPositionId: 'position_001'
   })
   
-  messageInput.value = ''
+  // messageInput.value = ''
   scrollToBottom()
-  
-  // 模拟对方回复
-  setTimeout(() => {
-    messages.value.push({
-      id: `msg_${Date.now() + 1}`,
-      sessionId: 'hr_hr001_candidate_cand001',
-      senderId: 'hr001',
-      senderType: UserType.HR,
-      receiverId: 'cand001',
-      receiverType: UserType.CANDIDATE,
-      type: MessageType.TEXT,
-      content: '收到您的消息，我们会尽快处理',
-      timestamp: Date.now(),
-      status: 'sent',
-      relatedPositionId: 'position_001'
-    })
-    scrollToBottom()
-  }, 2000)
+  alert(touser.value)
+  var mes = {"room":touser.value,"content":{"id":123,"content":messageInput.value}}
+  ws.value.send(JSON.stringify(mes))
 }
 
 const onKeyPress = (e) => {
