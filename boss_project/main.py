@@ -95,22 +95,28 @@ async def broadcast(message: str):
     for connection in active_connections:
         await connection.send_text(message)
 
-@app.websocket("/ws/{userid}")
-async def websocket_endpoint(websocket: WebSocket, userid: str):
-    client_connections[userid] = websocket
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await websocket.accept()
-    client_connections[str(userid)] = websocket
-    print(f"客户端 {userid} 已连接，当前连接数：{len(active_connections)}")
+    client_connections[str(client_id)] = websocket
+    print(f"客户端 {client_id} 已连接，当前连接数：{len(active_connections)}")
+    #判断是用户还是hr,如果是用户，把用户信息推送给hr
+    if client_id.startswith("user"):
+        userdict = {"id":3,"name":"张三23424"}
+        hrid =str(client_id.split("hr")[1])
+        await client_connections[hrid].send_text(json.dumps(userdict))
     try:
        while True:
            data = await websocket.receive_text()
            print(f"收到消息: {data}")
-           await websocket.send_text(f"服务器已收到消息: {data}")
+           data = json.loads(data)
+           room = data['room']
+           content = data['content']
+           await client_connections[str(room)].send_text(json.dumps(content))
     except WebSocketDisconnect:
         active_connections.remove(websocket)
-        client_connections.pop(userid,None)
-        await broadcast(f"userid {userid} disconnected")
-        print(f"客户端 {userid} 已断开，当前连接数：{len(active_connections)}")
+        client_connections.pop(client_id,None)       
+        print(f"客户端 {client_id} 已断开，当前连接数：{len(active_connections)}")
 
 from tools.myredis import r
 from tools.bdapi import bdapi
