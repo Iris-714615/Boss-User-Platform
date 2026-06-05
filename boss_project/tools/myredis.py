@@ -19,6 +19,9 @@ class MYREDIS:
 
     def zadd(self,key,score,value):
         self.r.zadd(key,{value:score})
+    def zrem(self,key,value):
+        self.r.zrem(key,value)
+        
      #根据排序删除，只保留5个
     def zremrangebyrank(self, key, start, end):
         self.r.zremrangebyrank(key, start, end)

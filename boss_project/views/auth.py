@@ -244,3 +244,23 @@ async def idcard_upload(userIDcard: userIdCard, request: Request):
     return {"code": 200, "msg": "上传成功"}
 
 
+@auth_router.get("/gethrmessage")
+async def get_hr_messages(userid: int, hrid: str):
+    user = await User.filter(id=userid).first()
+    key = 'hr'+str(hrid)+'user'+str(userid)
+    message = r.zrange(key,0,-1)
+    returnmes = []
+    if message:
+        for i in message:
+            mesdict = {'id':random.randint(1,10000),'content':i.decode()}
+            returnmes.append(mesdict)
+            r.zrem(key,i)
+    else:
+        returnmes = []
+    return {"code": 200, "msg": "获取成功", "data":{'user':{
+        "name": user.real_name,
+        'phone': user.phone,
+        'avatar': user.avatar,
+        'intention_position': user.intention_position},
+        'message': returnmes
+    }}

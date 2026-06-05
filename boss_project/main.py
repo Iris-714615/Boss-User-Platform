@@ -9,7 +9,16 @@ from views.home import home_router
 from views.auth import auth_router
 from tools.myjwt import mjwt
 from fastapi.responses import JSONResponse
+import time
 app = FastAPI()
+# 跨域配置
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # app.include_router(users_router, prefix="/user")
 app.include_router(home_router, prefix="")
 app.include_router(auth_router, prefix="/auth")
@@ -102,17 +111,64 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
     print(f"客户端 {client_id} 已连接，当前连接数：{len(active_connections)}")
     #判断是用户还是hr,如果是用户，把用户信息推送给hr
     if client_id.startswith("user"):
-        userdict = {"id":3,"name":"张三23424"}
+        id = client_id.split("hr")[0].replace("user","")
+        userdict = {"id":id,"name":str(id)+"号用户"}
         hrid =str(client_id.split("hr")[1])
-        await client_connections[hrid].send_text(json.dumps(userdict))
+        #判断hr是否存在
+        if hrid not in client_connections:
+            key = 'userlist'+str(hrid)
+            value = r.get(key)
+            if value:
+                userlist = json.loads(value)
+                flag = True
+                for item in userlist:
+                    if item['id'] == userdict['id']:
+                        flag = False
+                        break
+                if(flag):
+                    userlist.append(userdict)
+                    r.set(key,json.dumps(userlist))
+            else:
+                userlist = []
+                userlist.append(userdict)
+                r.set(key,json.dumps(userlist))
+        else:
+            userlist = []
+            userlist.append(userdict)
+            await client_connections[hrid].send_text(json.dumps(userlist))
+    if client_id.find('hr') < 0:
+        value = r.get('userlist'+str(client_id))
+        if value:
+            userlist = json.loads(value)
+            await websocket.send_text(json.dumps(userlist))
+    
     try:
        while True:
-           data = await websocket.receive_text()
-           print(f"收到消息: {data}")
-           data = json.loads(data)
-           room = data['room']
-           content = data['content']
-           await client_connections[str(room)].send_text(json.dumps(content))
+            data = await websocket.receive_text()
+            print(f"收到消息: {data}")
+            data = json.loads(data)
+            # 当用户给hr发消息 key  "hr"+String(route.params.hrId)+"user"+String(userid.value)
+            # 当hr给用户发消息 key  "user"+String(userid.value)+"hr"+String(route.params.hrId)
+            room = data['room']
+            content = data['content']
+            nowtime = int(time.time())
+            # 所有消息存入redis，在公司中存入到mysql 创建一张消息表 id 房间号（key） 消息内容 时间
+            #发送给hr
+            if room.startswith("hr"):
+                userid = room.split("user")[1]
+                hrid = room.split("user")[0].replace("hr","")
+            #发送给用户
+            else:
+                userid = room.split("hr")[0].replace("user","")
+                hrid = room.split("hr")[1]
+            key = "user" + str(userid) + "hr"+str(hrid)
+            r.zadd(key,nowtime,content['content'])
+            #接收者是否上线，如果没上线把新的消息存入redis，等上线后再发送
+            if str(room) not in client_connections:
+                # key =  "newuser" + str(userid) + "hr"+str(hrid)
+                r.zadd(room,nowtime,content['content'])
+            else:
+                await client_connections[str(room)].send_text(json.dumps(content))
     except WebSocketDisconnect:
         active_connections.remove(websocket)
         client_connections.pop(client_id,None)       
@@ -122,7 +178,7 @@ from tools.myredis import r
 from tools.bdapi import bdapi
 import json
 
-def idcardtask():
+async def idcardtask():
     len = r.llen('idcardocr')
     if len > 0:           
         idlist=r.lrange('idcardocr',0,-1)
@@ -134,14 +190,13 @@ def idcardtask():
             idcard = mes["words_result"][1]["words"][-18:]
             # r.set(imgurl,json.dumps({'name':name,'idcard':idcard}))
             # r.lrem('idcardocr',1,id)
-            # userAuth = UserAuthReal.filter(font_img=imgurl).first()
-            # userid = userAuth.user
-            userid = 1
-            client_connections[str(userid)].send_text(json.dumps({'realName':name,'idCardNumber':idcard}))
+            userAuth = await UserAuthReal.filter(font_img=imgurl).first()
+            userid = userAuth.user_id
+            await client_connections[str(userid)].send_text(json.dumps({'realName':name,'idCardNumber':idcard}))
     else:
         print("无数据处理等待中")
-from apscheduler.schedulers.background import BackgroundScheduler
-scheduler = BackgroundScheduler()
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+scheduler = AsyncIOScheduler()
 
 def add_jobs():
     scheduler.add_job(
