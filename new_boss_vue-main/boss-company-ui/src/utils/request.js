@@ -9,25 +9,25 @@ import router from '@/router'
 
 // 创建 axios 实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api', // API 基础路径
+  baseURL: 'http://localhost:8000' , // API 基础路径
   timeout: 15000, // 请求超时时间
 })
 
 // 请求拦截器
-service.interceptors.request.use(
-  (config) => {
-    // 从 localStorage 获取 token
-    const token = localStorage.getItem('companyToken')
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    console.error('Request error:', error)
-    return Promise.reject(error)
-  }
-)
+// service.interceptors.request.use(
+//   (config) => {
+//     // 从 localStorage 获取 token
+//     const token = localStorage.getItem('companyToken')
+//     if (token) {
+//       config.headers['Authorization'] = `Bearer ${token}`
+//     }
+//     return config
+//   },
+//   (error) => {
+//     console.error('Request error:', error)
+//     return Promise.reject(error)
+//   }
+// )
 
 // 响应拦截器
 service.interceptors.response.use(
@@ -35,18 +35,18 @@ service.interceptors.response.use(
     const res = response.data
     
     // 如果返回的状态码不是 200，说明接口有错误
-    if (res.code !== 200) {
-      // 401: 未授权，需要重新登录
-      if (res.code === 401) {
-        ElMessage.error('登录已过期，请重新登录')
-        localStorage.removeItem('companyToken')
-        localStorage.removeItem('companyUserInfo')
-        router.replace('/login')
-      } else {
-        ElMessage.error(res.message || '请求失败')
-      }
-      return Promise.reject(new Error(res.message || 'Error'))
-    }
+    // if (res.code !== 200) {
+    //   // 401: 未授权，需要重新登录
+    //   if (res.code === 401) {
+    //     ElMessage.error('登录已过期，请重新登录')
+    //     localStorage.removeItem('companyToken')
+    //     localStorage.removeItem('companyUserInfo')
+    //     router.replace('/login')
+    //   } else {
+    //     ElMessage.error(res.message || '请求失败')
+    //   }
+    //   return Promise.reject(new Error(res.message || 'Error'))
+    // }
     
     return res
   },

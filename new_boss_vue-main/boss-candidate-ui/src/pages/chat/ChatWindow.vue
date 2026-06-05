@@ -63,6 +63,7 @@ const initChatInfo = () => {
 
 onMounted(() => {
   // 初始化聊天信息
+  userid.value = route.query.userid
   initChatInfo()
 })
 
@@ -115,7 +116,7 @@ const sendMessage = () => {
   
   // messageInput.value = ''
   scrollToBottom()
-  alert(touser.value)
+  // alert(touser.value)
   var mes = {"room":touser.value,"content":{"id":123,"content":messageInput.value}}
   ws.value.send(JSON.stringify(mes))
 }

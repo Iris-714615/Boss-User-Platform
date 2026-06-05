@@ -2,7 +2,7 @@
 import { ref,onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Upload, Paperclip, Picture, Phone, VideoCamera, User } from '@element-plus/icons-vue'
-
+import request from '@/utils/request'
 const route = useRoute()
 const router = useRouter()
 
@@ -34,7 +34,7 @@ const sendMessage = () => {
   })
   
   // messageInput.value = ''
-  alert(touser.value)
+  // alert(touser.value)
   var mes = {"room":touser.value,"content":{"id":123,"content":messageInput.value}}
   ws.value.send(JSON.stringify(mes))
 }
@@ -49,6 +49,7 @@ const ws = ref(null)
 const room =ref(null)
 const userid = ref(null)
 const touser = ref('')
+const hrid = ref('a1001')
 
 const initwebsocket = ()=>{ 
   localStorage.setItem('userid',"a1001")
@@ -70,10 +71,16 @@ const initwebsocket = ()=>{
     messages.value.push(data)
   }
 }
+const getusermes = ()=>{
+  request.get('/auth/gethrmessage?userid='+userid.value+'&hrid='+hrid.value).then(res=>{
+      messages.value = res.data.message
+    })
+  }
 
 onMounted(()=>{
   userid.value = route.params.userId
   initwebsocket()
+  getusermes()
 })
 </script>
 

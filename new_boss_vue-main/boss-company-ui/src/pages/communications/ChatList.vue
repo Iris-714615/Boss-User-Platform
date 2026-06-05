@@ -12,25 +12,7 @@ const route = useRoute()
 
 
 // 使用统一的消息数据生成聊天列表
-const chatList = ref(candidateUsers.map(candidate => {
-  // 找到与该候选人的最新消息
-  const candidateMessages = messages.filter(
-    msg => msg.senderId === candidate.id || msg.receiverId === candidate.id
-  )
-  const lastMessage = candidateMessages[candidateMessages.length - 1]
-  
-  return {
-    id: candidate.id,
-    name: candidate.name,
-    avatar: candidate.avatar || '',
-    lastMessage: lastMessage ? lastMessage.content : '暂无消息',
-    time: lastMessage ? formatTime(lastMessage.timestamp) : '',
-    unread: Math.floor(Math.random() * 3), // TODO: 实际应该从后端获取
-    position: '求职者',
-    status: 'online'
-  }
-}))
-
+const chatList = ref([])
 const ws = ref(null)
 const initwebsocket = () => { 
   var room = route.query.id
@@ -42,8 +24,24 @@ const initwebsocket = () => {
   ws.value.onmessage = (event) => {
     console.log('收到消息:', event.data)
     var data = JSON.parse(event.data)
-    chatList.value.push(data)
-
+    var len = chatList.value.length
+    // len=0代表刚刚上线，直接添加到列表中
+    if(len == 0){
+      chatList.value = data
+      
+    }
+    // len>0代表有hr在线  那么后端就是来一个用户推送一个用户信息 [{},]的格式
+    else{
+      var flag = true
+      chatList.value.forEach(chat => {
+        if(chat.id == data[0]['id']){
+          flag = false
+        }
+      })
+      if(flag){
+        chatList.value.push(data)
+      }
+    }
   }
   ws.value.onerror = (error) => {
     console.error('WebSocket 错误:', error)
@@ -57,6 +55,7 @@ const initwebsocket = () => {
 }
 
 onMounted(() => {
+  
   initwebsocket()
 })
 
@@ -75,6 +74,7 @@ const onPhone = () => {
 const onVideo = () => {
   // TODO: 视频面试功能
 }
+
 </script>
 
 <template>
