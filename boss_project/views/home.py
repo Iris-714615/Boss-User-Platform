@@ -249,5 +249,126 @@ async def job_detail(id: int):
         return {'code':200,'msg':'成功','data':jobdict}
     #存入redis
     #返回职位详情
+from tools.mymongodb import mongo_db
+db = mongo_db.createdbs("comment")
+collection = mongo_db.createcoll(db,'hrcomment')
+from datetime import datetime
 
-    
+#评价请求体
+class HrComment(BaseModel):
+    hrid: int = None
+    rating: int = 5
+    content: str = None
+
+#提交评价接口
+@home_router.post("/hrcomment")
+async def hrcomment(hrcomment: HrComment, request: Request):
+    userid = 1
+    user = await User.filter(id=userid).first()
+    comment = {
+        "userid": userid,
+        "hrid": hrcomment.hrid or 1,
+        "rating": hrcomment.rating or 5,
+        "content": hrcomment.content,
+        "time": datetime.now(),
+        "username": user.real_name if user else "匿名",
+        "avatar": user.avatar if user else "",
+        "hrname": ""
+    }
+    collection.insert_one(comment)
+    return {"code": 200, "msg": "添加成功"}
+
+#获取评价列表接口（按 hrid 过滤 + 分页）
+@home_router.get("/hrcomment")
+async def get_hrcomment(hrid: int = 1, page: int = 1, page_size: int = 5):
+    skip = (int(page) - 1) * int(page_size)
+    query = {"hrid": int(hrid)}
+    cursor = collection.find(query).sort("time", -1).skip(skip).limit(int(page_size))
+    hrcomment = list(cursor)
+    # ObjectId 转为字符串，方便前端使用
+    for item in hrcomment:
+        if "_id" in item:
+            item["_id"] = str(item["_id"])
+        if "time" in item and item["time"]:
+            item["time"] = str(item["time"])
+    total = collection.count_documents(query)
+    return {"code": 200, "msg": "成功", "data": hrcomment, "total": total}
+
+# 初始化测试数据（只在模块加载时执行一次，避免每次请求都重复插入）
+def _init_chatrecord_testdata():
+    db = mongo_db.createdbs("boss")
+    collection = mongo_db.createcoll(db, 'rebotmessage')
+    # 如果已经有数据就不再插入
+    if collection.count_documents({}) > 0:
+        return
+    orders = [
+        {"sendid": 1, "recvid": "1001", "room": "11001", "content": "你好", "date": "2024-01-01", "comment_type": 1},
+        {"sendid": "1001", "recvid": 1, "room": "11001", "content": "你好324234234", "date": "2024-01-02"},
+        {"sendid": 2, "recvid": "1001", "room": "21001", "content": "你好324234234", "date": "2024-01-01"},
+        {"sendid": "1001", "recvid": 2, "room": "21001", "content": "你好324234234", "date": "2024-01-03"},
+        {"sendid": 2, "recvid": "1002", "room": "21002", "content": "你好324234234", "date": "2024-01-01"},
+        {"sendid": "1002", "recvid": 2, "room": "21002", "content": "你好324234234", "date": "2024-01-03"},
+    ]
+    collection.insert_many(orders)
+
+_init_chatrecord_testdata()
+
+# 获取聊天记录接口
+@home_router.get("/chatrecord")
+async def get_chatrecord(room: str = None, page: int = 1, page_size: int = 5):
+    """
+    获取聊天记录
+    :param room: 房间号（可选）。如果传入则只返回该房间；否则返回所有房间聚合
+    :param page: 页码
+    :param page_size: 每页条数
+    """
+    db = mongo_db.createdbs("boss")
+    collection = mongo_db.createcoll(db, 'rebotmessage')
+
+    # 如果指定了 room，按房间查询并分页
+    if room:
+        skip = (int(page) - 1) * int(page_size)
+        cursor = collection.find({"room": room}).sort("date", -1).skip(skip).limit(int(page_size))
+        messages = []
+        for item in cursor:
+            item["_id"] = str(item["_id"])
+            messages.append(item)
+        total = collection.count_documents({"room": room})
+        return {"code": 200, "msg": "成功", "data": messages, "total": total}
+
+    # 否则按用户聚合（这里默认用户 id=2 的所有房间）
+    # 兼容 sendid/recvid 可能是 int 或 str：分别查一次然后合并
+    target_id_str = "2"
+    # 用两次 find 替代 aggregate，避免 $match+$group 组合的 $expr 求值坑
+    cursor = collection.find({
+        "$or": [
+            {"sendid": int(target_id_str)},   # 匹配 int
+            {"sendid": target_id_str},        # 匹配 str
+            {"recvid": int(target_id_str)},
+            {"recvid": target_id_str}
+        ]
+    }).sort("date", -1)
+
+    # Python 里手工 group
+    grouped = {}
+    for doc in cursor:
+        room = doc.get("room")
+        if "_id" in doc:
+            doc["_id"] = str(doc["_id"])
+        if room not in grouped:
+            grouped[room] = []
+        grouped[room].append(doc)
+
+    result = [{"_id": room, "messages": msgs} for room, msgs in grouped.items()]
+    for item in result:
+        # 修复：group 后的字段是 messages（数组），不是 content
+        msg_list = item.get('messages', [])
+        print('房间号', item['_id'])
+        print('消息数', len(msg_list))
+        for m in msg_list:
+            # 把 ObjectId 转字符串，避免 JSON 序列化失败
+            if '_id' in m:
+                m['_id'] = str(m['_id'])
+            print('  ', m.get('content'))
+        print("-----------------")
+    return {"code": 200, "msg": "成功", "data": result}

@@ -9,6 +9,7 @@ from views.home import home_router
 from views.auth import auth_router
 from tools.myjwt import mjwt
 from fastapi.responses import JSONResponse
+from tools.mymongodb import mongo_db
 import time
 app = FastAPI()
 # 跨域配置
@@ -100,6 +101,7 @@ from fastapi import WebSocket,WebSocketDisconnect
 active_connections: List[WebSocket] = []
 client_connections: Dict[str, WebSocket] = {}
 
+
 async def broadcast(message: str):
     for connection in active_connections:
         await connection.send_text(message)
@@ -114,7 +116,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         id = client_id.split("hr")[0].replace("user","")
         userdict = {"id":id,"name":str(id)+"号用户"}
         hrid =str(client_id.split("hr")[1])
-        #判断hr是否存在
+        #判断hr是否在线
         if hrid not in client_connections:
             key = 'userlist'+str(hrid)
             value = r.get(key)
@@ -152,8 +154,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             room = data['room']
             content = data['content']
             nowtime = int(time.time())
-            # 所有消息存入redis，在公司中存入到mysql 创建一张消息表 id 房间号（key） 消息内容 时间
-            #发送给hr
+            # # 所有消息存入redis，在公司中存入到mysql 创建一张消息表 id 房间号（key） 消息内容 时间
+            # #发送给hr
             if room.startswith("hr"):
                 userid = room.split("user")[1]
                 hrid = room.split("user")[0].replace("hr","")
@@ -162,11 +164,23 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 userid = room.split("hr")[0].replace("user","")
                 hrid = room.split("hr")[1]
             key = "user" + str(userid) + "hr"+str(hrid)
-            r.zadd(key,nowtime,content['content'])
+            # r.zadd(key,nowtime,content['content'])
+            # 所有聊天消息存入 mongodb 
+            db = mongo_db.createdbs("boss")
+            collection = mongo_db.createcoll(db,'rebotmessage')
+            mesdict = {
+                "sendid":userid if room.startswith("hr") else hrid,
+                "recvid":hrid if room.startswith("hr") else userid,
+                "room": key,
+                "content":content['content'],
+                "time":nowtime
+            }
+            collection.insert_one(mesdict)
             #接收者是否上线，如果没上线把新的消息存入redis，等上线后再发送
             if str(room) not in client_connections:
                 # key =  "newuser" + str(userid) + "hr"+str(hrid)
                 r.zadd(room,nowtime,content['content'])
+                
             else:
                 await client_connections[str(room)].send_text(json.dumps(content))
     except WebSocketDisconnect:
