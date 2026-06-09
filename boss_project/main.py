@@ -9,8 +9,10 @@ from views.home import home_router
 from views.auth import auth_router
 from tools.myjwt import mjwt
 from fastapi.responses import JSONResponse
-from tools.mymongodb import mongo_db
+# 临时禁用：当前做大模型对话模块，MongoDB 暂不需要
+# from tools.mymongodb import mongo_db
 import time
+from views.chatai import chat_router
 app = FastAPI()
 # 跨域配置
 app.add_middleware(
@@ -21,8 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # app.include_router(users_router, prefix="/user")
-app.include_router(home_router, prefix="")
+# app.include_router(home_router, prefix="")
 app.include_router(auth_router, prefix="/auth")
+app.include_router(chat_router, prefix="/chatai")
 
 # 挂载 static 目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -166,8 +169,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             key = "user" + str(userid) + "hr"+str(hrid)
             # r.zadd(key,nowtime,content['content'])
             # 所有聊天消息存入 mongodb 
-            db = mongo_db.createdbs("boss")
-            collection = mongo_db.createcoll(db,'rebotmessage')
+            # db = mongo_db.createdbs("boss")
+            # collection = mongo_db.createcoll(db,'rebotmessage')
             mesdict = {
                 "sendid":userid if room.startswith("hr") else hrid,
                 "recvid":hrid if room.startswith("hr") else userid,
@@ -175,7 +178,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 "content":content['content'],
                 "time":nowtime
             }
-            collection.insert_one(mesdict)
+            # collection.insert_one(mesdict)
             #接收者是否上线，如果没上线把新的消息存入redis，等上线后再发送
             if str(room) not in client_connections:
                 # key =  "newuser" + str(userid) + "hr"+str(hrid)

@@ -249,9 +249,11 @@ async def job_detail(id: int):
         return {'code':200,'msg':'成功','data':jobdict}
     #存入redis
     #返回职位详情
-from tools.mymongodb import mongo_db
-db = mongo_db.createdbs("comment")
-collection = mongo_db.createcoll(db,'hrcomment')
+# 临时禁用：当前做大模型对话模块，MongoDB 暂不需要
+# from tools.mymongodb import mongo_db
+# db = mongo_db.createdbs("comment")
+# collection = mongo_db.createcoll(db, 'hrcomment')
+collection = None  # 占位
 from datetime import datetime
 
 #评价请求体
@@ -311,10 +313,11 @@ def _init_chatrecord_testdata():
     ]
     collection.insert_many(orders)
 
-_init_chatrecord_testdata()
+# 临时禁用：MongoDB 未连接
+# _init_chatrecord_testdata()
 
-# 获取聊天记录接口
-@home_router.get("/chatrecord")
+# 获取聊天记录接口（临时禁用：依赖 MongoDB）
+# @home_router.get("/chatrecord")
 async def get_chatrecord(room: str = None, page: int = 1, page_size: int = 5):
     """
     获取聊天记录
