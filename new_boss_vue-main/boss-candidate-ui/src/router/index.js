@@ -13,6 +13,8 @@ import JobList from '@/pages/jobs/JobList.vue'
 import JobDetail from '@/pages/jobs/JobDetail.vue'
 import Chat from '@/pages/chat/Chat.vue'
 import ChatWindow from '@/pages/chat/ChatWindow.vue'
+import QaChat from '@/pages/chat/QaChat.vue'
+import TestChat from '@/pages/chat/TestChat.vue'
 import Resume from '@/pages/resume/Resume.vue'
 import DeliveryRecord from '@/pages/delivery/DeliveryRecord.vue'
 import Favorites from '@/pages/favorites/Favorites.vue'
@@ -45,6 +47,11 @@ const routes = [
     component: DingLoginSuccess
   },
   {
+    path: '/test-chat',
+    name: 'TestChat',
+    component: TestChat
+  },
+  {
     path: '/candidate',
     component: CandidateLayout,
     redirect: '/candidate/home',
@@ -73,6 +80,11 @@ const routes = [
         path: 'chat/:hrId',
         name: 'ChatWindow',
         component: ChatWindow
+      },
+      {
+        path: 'qa',
+        name: 'QaChat',
+        component: QaChat
       },
       {
         path: 'resume',

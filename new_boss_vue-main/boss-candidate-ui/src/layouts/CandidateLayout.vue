@@ -5,6 +5,7 @@ import {
   HomeFilled,
   Briefcase,
   ChatDotRound,
+  Message,
   Document,
   User,
   Star,
@@ -40,6 +41,7 @@ const menus = [
   { name: 'Home', label: '首页', icon: HomeFilled, path: '/candidate/home' },
   { name: 'JobList', label: '职位', icon: Search, path: '/candidate/jobs' },
   { name: 'Chat', label: '消息', icon: ChatDotRound, path: '/candidate/chat', badge: 3 },
+  { name: 'QaChat', label: '在线问答', icon: Message, path: '/candidate/qa' },
   { name: 'Resume', label: '简历', icon: Document, path: '/candidate/resume' },
   { name: 'Profile', label: '我的', icon: User, path: '/candidate/profile' }
 ]
