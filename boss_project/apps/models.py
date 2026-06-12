@@ -365,3 +365,23 @@ class UserCoupon(Model):
 
     class Meta:
         table = "user_coupon"
+
+
+# 消息分类表    id、分类名称、添加时间、用户id
+class MessageCategory(Model):
+    id = fields.IntField(pk=True, auto_increment=True)
+    name = fields.CharField(max_length=100,default='新对话')
+    create_time = fields.DatetimeField(auto_now_add=True)
+    user = fields.ForeignKeyField("models.User", on_delete=fields.CASCADE)
+    class Meta:
+        table = "message_category"
+
+# 消息表  id、内容、消息分类id（外键关联消息分类表）、角色、添加时间
+class Message(Model):
+    id = fields.IntField(pk=True,auto_increment=True)
+    content = fields.TextField()
+    message_category = fields.ForeignKeyField("models.MessageCategory", on_delete=fields.CASCADE)
+    role = fields.CharField(max_length=100)
+    create_time = fields.DatetimeField(auto_now_add=True)
+    class Meta:
+        table = "message"

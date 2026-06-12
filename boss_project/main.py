@@ -7,12 +7,14 @@ from apps.models import *
 # from views.users import users_router
 from views.home import home_router
 from views.auth import auth_router
+
 from tools.myjwt import mjwt
 from fastapi.responses import JSONResponse
 # 临时禁用：当前做大模型对话模块，MongoDB 暂不需要
 # from tools.mymongodb import mongo_db
 import time
 from views.chatai import chat_router
+from views.chatdeep import deep_router
 app = FastAPI()
 # 跨域配置
 app.add_middleware(
@@ -26,6 +28,8 @@ app.add_middleware(
 # app.include_router(home_router, prefix="")
 app.include_router(auth_router, prefix="/auth")
 app.include_router(chat_router, prefix="/chatai")
+app.include_router(deep_router,prefix="/chatdeep")
+
 
 # 挂载 static 目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -40,19 +44,20 @@ register_tortoise(
 
 # @app.middleware("http")
 async def m2(request: Request, call_next):
+    request.state.userid = 1
     # 请求代码块
-    wlist = ["/auth/login", "/auth/register", "/auth/dingding", "/auth/dingcallback"]
-    if request.url.path not in wlist:
-        try:
-            token = request.headers.get("Authorization")
-            if token:
-                payload = mjwt.decode(token)
-                userid = payload["userid"]
-                request.state.userid = userid
-            else:
-                return JSONResponse( content={'code': 401, 'message': "未登录"})
-        except Exception as e:
-            return JSONResponse( content={'code': 401, 'message': f"登录验证失败: {str(e)}"})
+    # wlist = ["/auth/login", "/auth/register", "/auth/dingding", "/auth/dingcallback"]
+    # if request.url.path not in wlist:
+    #     try:
+    #         token = request.headers.get("Authorization")
+    #         if token:
+    #             payload = mjwt.decode(token)
+    #             userid = payload["userid"]
+    #             request.state.userid = userid
+    #         else:
+    #             return JSONResponse( content={'code': 401, 'message': "未登录"})
+    #     except Exception as e:
+            # return JSONResponse( content={'code': 401, 'message': f"登录验证失败: {str(e)}"})
     
     response = await call_next(request)
     # 响应代码块
@@ -224,7 +229,7 @@ def add_jobs():
         )
 
 # @app.on_event("startup")
-def startup_event():
+async def startup_event(request: Request):
     add_jobs()
     scheduler.start()
     print("调度器启动")
